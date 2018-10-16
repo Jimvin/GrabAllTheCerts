@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+import getopt
 import time
 import sys
 import threading
@@ -63,22 +64,49 @@ def get_data(ip, threadId):
           print("TypeError: {}".format(d), file=sys.stderr)
           pass
 
+def usage():
+    print("Usage: sslscan.py -t num_threads -f input_file", file=sys.stderr)
+    sys.exit(1)
+
+def main():
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], "t:f:", ["num_threads", "input_file"])
+    except getopt.GetoptError as e:
+        print(e) 
+        sys.exit(2)
+    logger = logging.getLogger()
+    logger.setLevel(logging.INFO)
+    hosts = Queue()
+    numThreads = 10 # Default number of threads
+    filename = None
+
+    for o, a in opts:
+        if o == "-t":
+            numThreads = int(a)
+        elif o == "-f":
+            filename = a
+
+    if filename == None:
+        if len(args) > 0:
+            filename = args[0]
+        else:
+            usage()
+
+    # Load list of hosts from file
+    with open(filename) as f:
+        for network in f:
+            for addr in netaddr.IPNetwork(network):
+              hosts.put(str(addr))
+
+    logging.info("Reading CIDR ranges to scan from {}".format(filename))
+    logging.info("Starting scanner with {} threads".format(numThreads))
+    t = []
+    socket.setdefaulttimeout(2)
+    for i in range(numThreads):
+        thread1 = getCertificate(i, hosts)
+        thread1.start()
+        t.append(thread1)
+
 if __name__ == '__main__':
-  logger = logging.getLogger()
-  logger.setLevel(logging.INFO)
-  hosts = Queue()
+  main()
 
-  # Load list of hosts from file
-  filename = sys.argv[1]
-  with open(filename) as f:
-    for network in f:
-        for addr in netaddr.IPNetwork(network):
-          hosts.put(str(addr))
-
-  t = []
-  numThreads = 1000
-  socket.setdefaulttimeout(2)
-  for i in range(numThreads):
-    thread1 = getCertificate(i, hosts)
-    thread1.start()
-    t.append(thread1)
